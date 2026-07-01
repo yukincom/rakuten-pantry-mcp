@@ -1,0 +1,16 @@
+--- /tmp/upstream-prompts-index.ts	2026-07-01 21:26:11
++++ src/prompts/index.ts	2026-07-01 20:57:39
+@@ -1,9 +1,8 @@
+ /**
+- * Prompt registry.
+- * Prompts are added alongside their corresponding tool families.
++ * Prompt registry — Ichiba value-comparison workflow only.
+  */
+ 
+ import type { PromptDefinition } from "../tools/types.js";
+-import { planRakutenTrip } from "./travel.js";
++import { compareIchibaValue } from "./ichiba.js";
+ 
+-export const prompts: PromptDefinition[] = [planRakutenTrip];
++export const prompts: PromptDefinition[] = [compareIchibaValue];
+\ No newline at end of file

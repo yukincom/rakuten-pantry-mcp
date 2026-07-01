@@ -1,0 +1,17 @@
+{
+  "genre": {
+    "genreId": 0,
+    "nameJa": "ジャンルトップ",
+    "level": 0
+  },
+  "ancestors": [],
+  "siblings": [],
+  "children": [
+    { "genreId": 100371, "nameJa": "パソコン・周辺機器", "level": 1 },
+    { "genreId": 100026, "nameJa": "本・雑誌・コミック", "level": 1 },
+    { "genreId": 100227, "nameJa": "食品", "level": 1 },
+    { "genreId": 558885, "nameJa": "家電", "level": 1 },
+    { "genreId": 100433, "nameJa": "レディースファッション", "level": 1 }
+  ],
+  "attributes": []
+}

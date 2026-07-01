@@ -1,0 +1,248 @@
+--- /tmp/upstream-ichiba.ts	2026-07-01 21:26:11
++++ src/tools/ichiba.ts	2026-07-01 20:18:02
+@@ -26,6 +26,165 @@
+ import type { ToolDefinition } from "./types.js";
+ 
+ // ──────────────────────────────────────────────────────────────────────────────
++// extractQuantityFromItemName — Extract total unit count from product name
++// ──────────────────────────────────────────────────────────────────────────────
++
++/** Lower priority number = more specific (preferred when multiple patterns match). */
++const BASE_QUANTITY_PATTERNS: ReadonlyArray<{ regex: RegExp; priority: number }> = [
++  { regex: /(\d+)\s*本入り/, priority: 1 },
++  { regex: /(\d+)\s*個入り/, priority: 1 },
++  { regex: /(\d+)\s*袋入り/, priority: 1 },
++  { regex: /(\d+)\s*個/, priority: 2 },
++  { regex: /(\d+)\s*本/, priority: 2 },
++  { regex: /(\d+)\s*袋/, priority: 2 },
++  { regex: /(\d+)\s*P(?![a-zA-Z])/i, priority: 2 },
++  { regex: /(\d+)\s*パック/, priority: 2 },
++  { regex: /(\d+)\s*枚/, priority: 2 },
++  { regex: /(\d+)\s*入り/, priority: 3 },
++  { regex: /(\d+)\s*セット/, priority: 3 },
++  { regex: /(\d+)\s*箱/, priority: 4 },
++  { regex: /(\d+)\s*ケース/, priority: 4 },
++];
++
++/**
++ * ×N is treated as a pack multiplier when:
++ *   - it is immediately preceded by 入り (e.g. "24本入り×2"), or
++ *   - it is followed by ケース/箱/セット/パック/袋 (e.g. "×2ケース", "6P×4袋")
++ * Bare ×N (e.g. "500ml×24本") is ignored so volume specs are not multiplied.
++ */
++const MULTIPLIER_PATTERN =
++  /[×xXｘ]\s*(\d+)(?:\s*(ケース|箱|セット|パック|袋))?/g;
++
++function findBaseQuantity(itemName: string): number | undefined {
++  let best: { value: number; priority: number; index: number } | undefined;
++
++  for (const { regex, priority } of BASE_QUANTITY_PATTERNS) {
++    const match = regex.exec(itemName);
++    if (!match?.[1] || match.index === undefined) continue;
++
++    const candidate = {
++      value: parseInt(match[1], 10),
++      priority,
++      index: match.index,
++    };
++
++    if (
++      !best
++      || candidate.priority < best.priority
++      || (candidate.priority === best.priority && candidate.index < best.index)
++    ) {
++      best = candidate;
++    }
++  }
++
++  return best?.value;
++}
++
++function findMultiplier(itemName: string): number {
++  let multiplier = 1;
++
++  for (const match of itemName.matchAll(MULTIPLIER_PATTERN)) {
++    const n = parseInt(match[1] ?? "", 10);
++    if (!Number.isFinite(n) || n < 1) continue;
++
++    const suffix = match[2];
++    const index = match.index ?? 0;
++    const before = itemName.slice(0, index);
++    const afterIri = /入り\s*$/.test(before);
++
++    if (suffix || afterIri) {
++      multiplier *= n;
++    }
++  }
++
++  return multiplier;
++}
++
++/**
++ * Extract the total purchasable unit count from a Rakuten Ichiba product name.
++ * Combines a base pack size (本/個/袋/P/…) with ×N case/box multipliers.
++ * Returns undefined when no quantity can be inferred.
++ *
++ * Examples:
++ *   "24本入り×2ケース" → 48
++ *   "6個セット"        → 6
++ *   "6P×4袋"           → 24
++ *   "12Pボトル"         → 12
++ *   "2ケース"           → 2
++ */
++export function extractQuantityFromItemName(itemName: string): number | undefined {
++  const base = findBaseQuantity(itemName);
++  if (base === undefined) return undefined;
++
++  const multiplier = findMultiplier(itemName);
++  const total = base * multiplier;
++  return total >= 1 ? total : undefined;
++}
++
++function computeUnitPrice(
++  itemPrice: number,
++  quantity: number | undefined,
++): number | undefined {
++  if (quantity === undefined || quantity <= 0 || itemPrice <= 0) {
++    return undefined;
++  }
++  // Per-unit price in JPY, rounded to 0.1 yen for comparison.
++  return Math.round((itemPrice / quantity) * 10) / 10;
++}
++
++// ──────────────────────────────────────────────────────────────────────────────
++// Postage — API flag only; yen amounts verified via web search for finalists
++// ──────────────────────────────────────────────────────────────────────────────
++
++/** Human-readable postage status derived from Rakuten's postageFlag. */
++export type PostageLabel = "送料無料" | "送料別" | "要確認";
++
++/**
++ * Rakuten Ichiba postageFlag:
++ *   1 = free shipping / shipping included
++ *   0 = shipping charged separately
++ *   2 = individual / conditional (shop-specific)
++ */
++export function mapPostageLabel(postageFlag: number): PostageLabel {
++  if (postageFlag === 1) return "送料無料";
++  if (postageFlag === 0) return "送料別";
++  return "要確認";
++}
++
++export interface PostageInfo {
++  postageLabel: PostageLabel;
++  /** itemPrice when shipping is confirmed free; undefined when web lookup is needed. */
++  estimatedTotalPrice?: number;
++  /** True when estimatedTotalPrice already reflects the full payable amount. */
++  shippingVerified: boolean;
++}
++
++export function resolvePostageInfo(
++  postageFlag: number,
++  itemPrice: number,
++): PostageInfo {
++  if (postageFlag === 1 && itemPrice > 0) {
++    return {
++      postageLabel: "送料無料",
++      estimatedTotalPrice: itemPrice,
++      shippingVerified: true,
++    };
++  }
++
++  return {
++    postageLabel: mapPostageLabel(postageFlag),
++    estimatedTotalPrice: undefined,
++    shippingVerified: false,
++  };
++}
++
++/** Agent workflow appended to Ichiba search/ranking tool descriptions. */
++export const ICHIBA_VALUE_COMPARE_WORKFLOW = bilingual(
++  "For cheapest / per-unit / shipping-inclusive comparisons (送料込み, コスパ, 安い順, 最安): use the compare_ichiba_value PROMPT instead of this tool alone. If you must use this tool directly: (1) pre-sort by unitPrice ascending; (2) shippingVerified=true → estimatedTotalPrice is final; (3) web-search top 3–5 shippingVerified=false items for JPY shipping; (4) re-rank by itemPrice+shipping; never guess shipping.",
++  "送料込み・コスパ・安い順・最安の比較は compare_ichiba_value プロンプトを使うこと(このツール単体は不十分)。直接使う場合: (1) unitPrice昇順 (2) shippingVerified=trueは確定 (3) false上位3〜5件をウェブ検索 (4) 再ソート。送料推測禁止。",
++);
++
++// ──────────────────────────────────────────────────────────────────────────────
+ // ichiba_item_search — Search products on Rakuten Ichiba
+ // ──────────────────────────────────────────────────────────────────────────────
+ 
+@@ -117,9 +276,22 @@
+   availability: number;
+   taxFlag: number;
+   postageFlag: number;
++  /** Derived from postageFlag: 送料無料 / 送料別 / 要確認. */
++  postageLabel: PostageLabel;
+   pointRate: number;
+   pointRateStartTime?: string;
+   pointRateEndTime?: string;
++  /** Total unit count parsed from itemName (e.g. 48 for "24本入り×2ケース"). */
++  quantity?: number;
++  /** itemPrice divided by quantity (JPY per unit), when quantity is known. */
++  unitPrice?: number;
++  /**
++   * Payable total when shipping is known (equals itemPrice when postageLabel is 送料無料).
++   * Undefined when shipping must be confirmed via web search.
++   */
++  estimatedTotalPrice?: number;
++  /** True when estimatedTotalPrice is reliable without a web lookup. */
++  shippingVerified: boolean;
+ }
+ 
+ export interface IchibaItemSearchResult {
+@@ -164,9 +336,15 @@
+ 
+ function mapItem(raw: RawItem): IchibaItem {
+   const i = raw.Item;
++  const itemName = i.itemName ?? "";
++  const itemPrice = i.itemPrice ?? 0;
++  const quantity = extractQuantityFromItemName(itemName);
++  const postageFlag = i.postageFlag ?? 0;
++  const postage = resolvePostageInfo(postageFlag, itemPrice);
++
+   return {
+-    itemName: i.itemName ?? "",
+-    itemPrice: i.itemPrice ?? 0,
++    itemName,
++    itemPrice,
+     itemUrl: i.itemUrl ?? "",
+     shopName: i.shopName ?? "",
+     shopCode: i.shopCode ?? "",
+@@ -176,10 +354,15 @@
+     imageUrl: i.mediumImageUrls?.[0]?.imageUrl,
+     availability: i.availability ?? 0,
+     taxFlag: i.taxFlag ?? 0,
+-    postageFlag: i.postageFlag ?? 0,
++    postageFlag,
++    postageLabel: postage.postageLabel,
+     pointRate: i.pointRate ?? 1,
+     pointRateStartTime: i.pointRateStartTime,
+     pointRateEndTime: i.pointRateEndTime,
++    quantity,
++    unitPrice: computeUnitPrice(itemPrice, quantity),
++    estimatedTotalPrice: postage.estimatedTotalPrice,
++    shippingVerified: postage.shippingVerified,
+   };
+ }
+ 
+@@ -190,8 +373,8 @@
+     "楽天市場で商品を検索",
+   ),
+   description: bilingual(
+-    "Search products on Rakuten Ichiba (Japan's largest e-commerce marketplace) by keyword. Supports price range filtering, sorting by review count/average/price, and restricting results to a specific genre or shop. Returns a paginated list of items with prices, review stats, images, and direct purchase URLs.",
+-    "楽天市場(日本最大のEコマースモール)で商品をキーワード検索します。価格範囲フィルタ、レビュー数/平均/価格による並び替え、ジャンルや店舗での絞り込みに対応。価格、レビュー、画像、購入URLを含む商品一覧をページング形式で返します。",
++    `Search products on Rakuten Ichiba (Japan's largest e-commerce marketplace) by keyword. Supports price range filtering, sorting by review count/average/price, and restricting results to a specific genre or shop. Returns items with prices, review stats, images, purchase URLs, quantity, unitPrice, postageLabel (from postageFlag), estimatedTotalPrice, and shippingVerified. ${ICHIBA_VALUE_COMPARE_WORKFLOW.en}`,
++    `楽天市場で商品をキーワード検索します。各商品にquantity・unitPrice・postageLabel・estimatedTotalPrice・shippingVerifiedを付与します。${ICHIBA_VALUE_COMPARE_WORKFLOW.ja}`,
+   ),
+   inputSchema: itemSearchInput,
+   async handler(args, config) {
+@@ -496,8 +679,8 @@
+     "楽天市場の売れ筋ランキングを取得",
+   ),
+   description: bilingual(
+-    "Get the Rakuten Ichiba bestseller ranking — overall or filtered by genre, time period, age, and gender demographic. Returns ranked items with their rank, price, review stats, and purchase URL. Use ichiba_genre_search to find specific genre IDs.",
+-    "楽天市場の売れ筋ランキングを取得します。総合または、ジャンル/集計期間/年代/性別で絞り込み可能。順位、価格、レビュー、購入URLを含むランキング一覧を返します。ジャンルIDの検索には ichiba_genre_search を使用してください。",
++    `Get the Rakuten Ichiba bestseller ranking — overall or filtered by genre, time period, age, and gender demographic. Returns ranked items with rank, price, review stats, purchase URL, quantity, unitPrice, postageLabel, estimatedTotalPrice, and shippingVerified. Use ichiba_genre_search to find genre IDs. ${ICHIBA_VALUE_COMPARE_WORKFLOW.en}`,
++    `楽天市場の売れ筋ランキングを取得します。quantity・unitPrice・postageLabel・estimatedTotalPrice・shippingVerifiedを含みます。${ICHIBA_VALUE_COMPARE_WORKFLOW.ja}`,
+   ),
+   inputSchema: itemRankingInput,
+   async handler(args, config) {

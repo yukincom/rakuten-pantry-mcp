@@ -1,0 +1,67 @@
+--- /tmp/upstream-server.ts	2026-07-01 21:26:11
++++ src/server.ts	2026-07-01 21:22:41
+@@ -8,25 +8,24 @@
+ import { tryLoadConfig } from "./config.js";
+ import { RakutenError } from "./errors.js";
+ import { prompts } from "./prompts/index.js";
++import { buildPromptArgsSchema } from "./prompts/schema.js";
+ import { resources } from "./resources/index.js";
+ import { tools } from "./tools/index.js";
+ import { READONLY, withParamTitles } from "./tools/meta.js";
+ 
+-const SERVER_NAME = "rakuten-mcp";
+-const SERVER_VERSION = "1.1.0";
++const SERVER_NAME = "rakuten-pantry-mcp";
++const SERVER_VERSION = "1.2.0";
+ 
+-const SERVER_INSTRUCTIONS = `rakuten-mcp exposes the public Rakuten Web Service as MCP tools across six families: Ichiba (e-commerce), Books, Travel (hotels), Recipe, Kobo (eBooks), and GORA (golf).
++const SERVER_INSTRUCTIONS = `rakuten-pantry-mcp exposes Rakuten Ichiba (marketplace) as MCP tools — 5 read-only ichiba_* tools plus the compare_ichiba_value prompt.
+ 
+-All tools are READ-ONLY. There are no money-moving operations.
++Fork of mrslbt/rakuten-mcp with quantity/unitPrice parsing, shipping flags (postageLabel, estimatedTotalPrice, shippingVerified), and compare_ichiba_value. Ichiba only (no Books/Travel/Recipe/Kobo/GORA).
+ 
+-Auth: set RAKUTEN_APP_ID and RAKUTEN_ACCESS_KEY (free at https://webservice.rakuten.co.jp/). Optionally set RAKUTEN_AFFILIATE_ID to append affiliate links.
++Auth: RAKUTEN_APP_ID and RAKUTEN_ACCESS_KEY (https://webservice.rakuten.co.jp/). Optional RAKUTEN_AFFILIATE_ID.
+ 
+-When tools error with rate limits, the server retries automatically with exponential backoff (max 3 retries by default; override with RAKUTEN_MAX_RETRIES).
++Rate limits: automatic retry with backoff (RAKUTEN_MAX_RETRIES, default 3).
+ 
+-Tool naming: every tool is prefixed by its API family — ichiba_*, books_*, travel_*, recipe_*, kobo_*, gora_*.
++For 送料込み / コスパ / 安い順 / per-unit ranking, prefer compare_ichiba_value over ichiba_item_search alone. Web-search shipping for finalists where shippingVerified=false. Never guess shipping amounts.`;
+ 
+-Bilingual: every tool description is provided in English (primary) and Japanese ([JA]). Use whichever the user prefers.`;
+-
+ export function buildServer(): McpServer {
+   // Only advertise capabilities the server actually serves. The SDK only
+   // registers a `prompts/list` / `resources/list` handler when at least one
+@@ -108,12 +107,13 @@
+   // Prompts
+   for (const prompt of prompts) {
+     const argsSchema = Object.fromEntries(
+-      (prompt.arguments ?? []).map((a) => [
+-        a.name,
+-        (a.required ? z.string() : z.string().optional()).describe(
+-          `${a.description.en} ${a.description.ja}`,
+-        ),
+-      ]),
++      Object.entries(buildPromptArgsSchema(prompt.arguments)).map(([name, schema]) => {
++        const arg = prompt.arguments?.find((a) => a.name === name);
++        return [
++          name,
++          schema.describe(`${arg?.description.en ?? ""} ${arg?.description.ja ?? ""}`.trim()),
++        ];
++      }),
+     );
+     server.registerPrompt(
+       prompt.name,
+@@ -122,8 +122,8 @@
+         description: `${prompt.description.en}\n\n[JA] ${prompt.description.ja}`,
+         argsSchema,
+       },
+-      async (args: Record<string, string | undefined>) => {
+-        const text = prompt.build(args);
++      async (args) => {
++        const text = prompt.build(args as Record<string, string | undefined>);
+         return {
+           messages: [
+             {

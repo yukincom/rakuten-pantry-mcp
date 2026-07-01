@@ -1,12 +1,12 @@
 {
-  "name": "rakuten-mcp",
-  "version": "1.1.0",
-  "mcpName": "io.github.mrslbt/rakuten-mcp",
-  "description": "MCP server for Rakuten Web Service: 28 read-only tools across Ichiba, Books, Travel, Recipe, Kobo, and GORA. Bilingual EN/JA tool descriptions.",
+  "name": "rakuten-pantry-mcp",
+  "version": "1.2.0",
+  "mcpName": "io.github.yukin_co/rakuten-pantry-mcp",
+  "description": "Rakuten Ichiba MCP with unit-price parsing, shipping flags, and compare_ichiba_value. Fork of mrslbt/rakuten-mcp (Ichiba-only).",
   "type": "module",
   "main": "dist/index.js",
   "bin": {
-    "rakuten-mcp": "./dist/index.js"
+    "rakuten-pantry-mcp": "./dist/index.js"
   },
   "files": [
     "dist",
@@ -34,30 +34,20 @@
     "mcp-server",
     "model-context-protocol",
     "rakuten",
+    "ichiba",
     "japan",
     "ecommerce",
-    "books",
-    "travel",
-    "hotels",
+    "unit-price",
+    "shipping",
     "ai-agents",
-    "claude",
-    "claude-desktop",
-    "claude-code",
     "cursor",
     "llm"
   ],
-  "author": {
-    "name": "Marsel Bait",
-    "url": "https://marselbait.me"
-  },
+  "author": "yukin_co",
   "license": "MIT",
-  "homepage": "https://github.com/mrslbt/rakuten-mcp#readme",
   "repository": {
     "type": "git",
-    "url": "https://github.com/mrslbt/rakuten-mcp"
-  },
-  "bugs": {
-    "url": "https://github.com/mrslbt/rakuten-mcp/issues"
+    "url": "https://github.com/yukin_co/rakuten-pantry-mcp"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
