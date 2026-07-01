@@ -1,0 +1,75 @@
+{
+  "name": "rakuten-mcp",
+  "version": "1.1.0",
+  "mcpName": "io.github.mrslbt/rakuten-mcp",
+  "description": "MCP server for Rakuten Web Service: 28 read-only tools across Ichiba, Books, Travel, Recipe, Kobo, and GORA. Bilingual EN/JA tool descriptions.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "rakuten-mcp": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "AGENTS.md"
+  ],
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "dev:stdio": "tsx src/index.ts",
+    "dev:http": "tsx src/index.ts --http 3000",
+    "build": "tsup src/index.ts --format esm --target node20 --clean --shims",
+    "start": "node dist/index.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "mcp",
+    "mcp-server",
+    "model-context-protocol",
+    "rakuten",
+    "japan",
+    "ecommerce",
+    "books",
+    "travel",
+    "hotels",
+    "ai-agents",
+    "claude",
+    "claude-desktop",
+    "claude-code",
+    "cursor",
+    "llm"
+  ],
+  "author": {
+    "name": "Marsel Bait",
+    "url": "https://marselbait.me"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/mrslbt/rakuten-mcp#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mrslbt/rakuten-mcp"
+  },
+  "bugs": {
+    "url": "https://github.com/mrslbt/rakuten-mcp/issues"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.19.19",
+    "@vitest/coverage-v8": "^4.1.8",
+    "msw": "^2.14.6",
+    "tsup": "^8.5.1",
+    "tsx": "^4.22.4",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.8"
+  }
+}
