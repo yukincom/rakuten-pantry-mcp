@@ -760,6 +760,8 @@ export const ichibaItemRankingTool: ToolDefinition<typeof itemRankingInput> = {
     }));
     mapped.sort((a, b) => a.rank - b.rank);
 
+    detectShippingOutliers(mapped);
+
     const result: IchibaItemRankingResult = {
       title: raw.title ?? "",
       lastBuildDate: raw.lastBuildDate ?? "",
