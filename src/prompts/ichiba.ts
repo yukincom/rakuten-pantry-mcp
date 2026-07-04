@@ -68,8 +68,8 @@ Follow this plan exactly:
 1. Call ichiba_item_search with the keyword${maxPrice ? ` and max_price=${maxPrice}` : ""} (hits=30 if needed).
 2. Pre-rank candidates by unitPrice ascending (lowest per-unit cost first). Skip items with no unitPrice unless the user cares about total pack price only.
 3. Split results:
-   - shippingVerified=true (postageLabel "送料無料"): treat estimatedTotalPrice as confirmed total; shipping = 0.
-   - shippingVerified=false (postageLabel "送料別" or "要確認"): needs web verification.
+   - shippingVerified=true AND needsShippingRecheck is not true: treat estimatedTotalPrice as confirmed total; shipping = 0.
+   - shippingVerified=false OR needsShippingRecheck=true: needs web verification (the latter means the API's postageFlag looks mislabeled — this item's unitPrice was implausibly cheaper than peers).
 4. Take the top ${finalists} items that still need shipping verification. For each, web-search using itemUrl first, or query "shopName itemName 送料" / "shopName 送料". Extract the shipping cost in JPY for a typical mainland-Japan delivery. If ambiguous, note "送料要確認" — do not invent a number.
 5. Compute totalPrice = itemPrice + confirmedShipping for each finalist. Re-rank all candidates by totalPrice, then by unitPrice as tiebreaker.
 6. Present a ranked table: rank, itemName, shopName, itemPrice, postageLabel, shipping (JPY or 要確認), totalPrice, quantity, unitPrice, itemUrl.
@@ -87,8 +87,8 @@ ${priceFilterJa}
 1. ichiba_item_search をキーワード${maxPrice ? `・max_price=${maxPrice}` : ""}で呼ぶ (必要なら hits=30)。
 2. unitPrice 昇順で粗ソート (unitPrice 不明はパック価格重視時のみ考慮)。
 3. 仕分け:
-   - shippingVerified=true (送料無料): estimatedTotalPrice を確定合計、送料0円。
-   - shippingVerified=false (送料別/要確認): ウェブ確認が必要。
+   - shippingVerified=true かつ needsShippingRecheck が立っていない: estimatedTotalPrice を確定合計、送料0円。
+   - shippingVerified=false または needsShippingRecheck=true: ウェブ確認が必要(後者はAPIのpostageFlag表記に齟齬の疑いがあるケース。他商品よりunitPriceが不自然に安い)。
 4. 要確認の上位${finalists}件について、itemUrl または「店舗名+商品名+送料」でウェブ検索し、本土向け送料(円)を確認。不明なら「送料要確認」とし、金額を推測しない。
 5. totalPrice = 商品価格 + 確認済み送料 で再ソート。同程度なら unitPrice 順。
 6. 順位表を提示: 順位、商品名、店舗、商品価格、postageLabel、送料、totalPrice、quantity、unitPrice、URL。

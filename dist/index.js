@@ -328,8 +328,8 @@ Follow this plan exactly:
 1. Call ichiba_item_search with the keyword${maxPrice ? ` and max_price=${maxPrice}` : ""} (hits=30 if needed).
 2. Pre-rank candidates by unitPrice ascending (lowest per-unit cost first). Skip items with no unitPrice unless the user cares about total pack price only.
 3. Split results:
-   - shippingVerified=true (postageLabel "\u9001\u6599\u7121\u6599"): treat estimatedTotalPrice as confirmed total; shipping = 0.
-   - shippingVerified=false (postageLabel "\u9001\u6599\u5225" or "\u8981\u78BA\u8A8D"): needs web verification.
+   - shippingVerified=true AND needsShippingRecheck is not true: treat estimatedTotalPrice as confirmed total; shipping = 0.
+   - shippingVerified=false OR needsShippingRecheck=true: needs web verification (the latter means the API's postageFlag looks mislabeled \u2014 this item's unitPrice was implausibly cheaper than peers).
 4. Take the top ${finalists} items that still need shipping verification. For each, web-search using itemUrl first, or query "shopName itemName \u9001\u6599" / "shopName \u9001\u6599". Extract the shipping cost in JPY for a typical mainland-Japan delivery. If ambiguous, note "\u9001\u6599\u8981\u78BA\u8A8D" \u2014 do not invent a number.
 5. Compute totalPrice = itemPrice + confirmedShipping for each finalist. Re-rank all candidates by totalPrice, then by unitPrice as tiebreaker.
 6. Present a ranked table: rank, itemName, shopName, itemPrice, postageLabel, shipping (JPY or \u8981\u78BA\u8A8D), totalPrice, quantity, unitPrice, itemUrl.
@@ -347,8 +347,8 @@ ${priceFilterJa}
 1. ichiba_item_search \u3092\u30AD\u30FC\u30EF\u30FC\u30C9${maxPrice ? `\u30FBmax_price=${maxPrice}` : ""}\u3067\u547C\u3076 (\u5FC5\u8981\u306A\u3089 hits=30)\u3002
 2. unitPrice \u6607\u9806\u3067\u7C97\u30BD\u30FC\u30C8 (unitPrice \u4E0D\u660E\u306F\u30D1\u30C3\u30AF\u4FA1\u683C\u91CD\u8996\u6642\u306E\u307F\u8003\u616E)\u3002
 3. \u4ED5\u5206\u3051:
-   - shippingVerified=true (\u9001\u6599\u7121\u6599): estimatedTotalPrice \u3092\u78BA\u5B9A\u5408\u8A08\u3001\u9001\u65990\u5186\u3002
-   - shippingVerified=false (\u9001\u6599\u5225/\u8981\u78BA\u8A8D): \u30A6\u30A7\u30D6\u78BA\u8A8D\u304C\u5FC5\u8981\u3002
+   - shippingVerified=true \u304B\u3064 needsShippingRecheck \u304C\u7ACB\u3063\u3066\u3044\u306A\u3044: estimatedTotalPrice \u3092\u78BA\u5B9A\u5408\u8A08\u3001\u9001\u65990\u5186\u3002
+   - shippingVerified=false \u307E\u305F\u306F needsShippingRecheck=true: \u30A6\u30A7\u30D6\u78BA\u8A8D\u304C\u5FC5\u8981(\u5F8C\u8005\u306FAPI\u306EpostageFlag\u8868\u8A18\u306B\u9F5F\u9F6C\u306E\u7591\u3044\u304C\u3042\u308B\u30B1\u30FC\u30B9\u3002\u4ED6\u5546\u54C1\u3088\u308AunitPrice\u304C\u4E0D\u81EA\u7136\u306B\u5B89\u3044)\u3002
 4. \u8981\u78BA\u8A8D\u306E\u4E0A\u4F4D${finalists}\u4EF6\u306B\u3064\u3044\u3066\u3001itemUrl \u307E\u305F\u306F\u300C\u5E97\u8217\u540D+\u5546\u54C1\u540D+\u9001\u6599\u300D\u3067\u30A6\u30A7\u30D6\u691C\u7D22\u3057\u3001\u672C\u571F\u5411\u3051\u9001\u6599(\u5186)\u3092\u78BA\u8A8D\u3002\u4E0D\u660E\u306A\u3089\u300C\u9001\u6599\u8981\u78BA\u8A8D\u300D\u3068\u3057\u3001\u91D1\u984D\u3092\u63A8\u6E2C\u3057\u306A\u3044\u3002
 5. totalPrice = \u5546\u54C1\u4FA1\u683C + \u78BA\u8A8D\u6E08\u307F\u9001\u6599 \u3067\u518D\u30BD\u30FC\u30C8\u3002\u540C\u7A0B\u5EA6\u306A\u3089 unitPrice \u9806\u3002
 6. \u9806\u4F4D\u8868\u3092\u63D0\u793A: \u9806\u4F4D\u3001\u5546\u54C1\u540D\u3001\u5E97\u8217\u3001\u5546\u54C1\u4FA1\u683C\u3001postageLabel\u3001\u9001\u6599\u3001totalPrice\u3001quantity\u3001unitPrice\u3001URL\u3002
@@ -544,9 +544,19 @@ function resolvePostageInfo(postageFlag, itemPrice) {
     shippingVerified: false
   };
 }
+function detectShippingOutliers(items, minRatio = 1.12) {
+  const comparable = items.filter((item) => item.unitPrice !== void 0).sort((a, b) => a.unitPrice - b.unitPrice);
+  if (comparable.length < 5) return items;
+  const cheapest = comparable[0];
+  const medianOf3to5 = comparable[3].unitPrice;
+  if (cheapest.unitPrice > 0 && medianOf3to5 / cheapest.unitPrice >= minRatio) {
+    cheapest.needsShippingRecheck = true;
+  }
+  return items;
+}
 var ICHIBA_VALUE_COMPARE_WORKFLOW = bilingual(
-  "For cheapest / per-unit / shipping-inclusive comparisons (\u9001\u6599\u8FBC\u307F, \u30B3\u30B9\u30D1, \u5B89\u3044\u9806, \u6700\u5B89): use the compare_ichiba_value PROMPT instead of this tool alone. If you must use this tool directly: (1) pre-sort by unitPrice ascending; (2) shippingVerified=true \u2192 estimatedTotalPrice is final; (3) web-search top 3\u20135 shippingVerified=false items for JPY shipping; (4) re-rank by itemPrice+shipping; never guess shipping.",
-  "\u9001\u6599\u8FBC\u307F\u30FB\u30B3\u30B9\u30D1\u30FB\u5B89\u3044\u9806\u30FB\u6700\u5B89\u306E\u6BD4\u8F03\u306F compare_ichiba_value \u30D7\u30ED\u30F3\u30D7\u30C8\u3092\u4F7F\u3046\u3053\u3068(\u3053\u306E\u30C4\u30FC\u30EB\u5358\u4F53\u306F\u4E0D\u5341\u5206)\u3002\u76F4\u63A5\u4F7F\u3046\u5834\u5408: (1) unitPrice\u6607\u9806 (2) shippingVerified=true\u306F\u78BA\u5B9A (3) false\u4E0A\u4F4D3\u301C5\u4EF6\u3092\u30A6\u30A7\u30D6\u691C\u7D22 (4) \u518D\u30BD\u30FC\u30C8\u3002\u9001\u6599\u63A8\u6E2C\u7981\u6B62\u3002"
+  "For cheapest / per-unit / shipping-inclusive comparisons (\u9001\u6599\u8FBC\u307F, \u30B3\u30B9\u30D1, \u5B89\u3044\u9806, \u6700\u5B89): use the compare_ichiba_value PROMPT instead of this tool alone. If you must use this tool directly: (1) pre-sort by unitPrice ascending; (2) shippingVerified=true AND needsShippingRecheck is not true \u2192 estimatedTotalPrice is final; (3) web-search top 3\u20135 items where shippingVerified=false OR needsShippingRecheck=true for JPY shipping; (4) re-rank by itemPrice+shipping; never guess shipping.",
+  "\u9001\u6599\u8FBC\u307F\u30FB\u30B3\u30B9\u30D1\u30FB\u5B89\u3044\u9806\u30FB\u6700\u5B89\u306E\u6BD4\u8F03\u306F compare_ichiba_value \u30D7\u30ED\u30F3\u30D7\u30C8\u3092\u4F7F\u3046\u3053\u3068(\u3053\u306E\u30C4\u30FC\u30EB\u5358\u4F53\u306F\u4E0D\u5341\u5206)\u3002\u76F4\u63A5\u4F7F\u3046\u5834\u5408: (1) unitPrice\u6607\u9806 (2) shippingVerified=true \u304B\u3064 needsShippingRecheck \u304C\u7ACB\u3063\u3066\u3044\u306A\u3051\u308C\u3070\u78BA\u5B9A (3) shippingVerified=false \u307E\u305F\u306F needsShippingRecheck=true \u306E\u4E0A\u4F4D3\u301C5\u4EF6\u3092\u30A6\u30A7\u30D6\u691C\u7D22 (4) \u518D\u30BD\u30FC\u30C8\u3002\u9001\u6599\u63A8\u6E2C\u7981\u6B62\u3002"
 );
 var ICHIBA_SORT_OPTIONS = [
   "standard",
@@ -656,6 +666,7 @@ var ichibaItemSearchTool = {
       pageCount: raw.pageCount ?? 0,
       items: (raw.Items ?? []).map(mapItem)
     };
+    detectShippingOutliers(result.items);
     return result;
   }
 };
@@ -1247,7 +1258,22 @@ async function runStdio() {
 }
 
 // src/index.ts
+function parseEnvFlags(argv) {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--env" && i + 1 < argv.length) {
+      const pair = argv[i + 1];
+      const eq = pair.indexOf("=");
+      if (eq > 0) {
+        const key = pair.slice(0, eq);
+        const value = pair.slice(eq + 1);
+        process.env[key] = value;
+        i++;
+      }
+    }
+  }
+}
 async function main() {
+  parseEnvFlags(process.argv.slice(2));
   const cliOverride = parseCliTransport(process.argv.slice(2));
   const config = tryLoadConfig();
   const transport = cliOverride.transport ?? config?.transport ?? "stdio";

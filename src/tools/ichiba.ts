@@ -178,10 +178,50 @@ export function resolvePostageInfo(
   };
 }
 
+// ──────────────────────────────────────────────────────────────────────────────
+// detectShippingOutliers — Flag suspiciously-cheap items for re-verification
+// ──────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Even when postageFlag=1 (送料無料) is trusted, shops occasionally mislabel
+ * the flag — leaving a "free shipping" item's itemPrice far below what peers
+ * with genuinely comparable unitPrice charge. Detected by comparing the
+ * cheapest item's unitPrice against the median of ranks 3–5 (once sorted by
+ * unitPrice ascending). unitPrice already normalizes for pack-size
+ * differences, so no separate "same packaging" grouping is needed.
+ *
+ * Mutates the passed item objects (setting needsShippingRecheck) and returns
+ * the same array, so callers can pass it straight through to the result.
+ * Requires at least 5 items with a known unitPrice; otherwise a no-op.
+ */
+export function detectShippingOutliers(
+  items: IchibaItem[],
+  minRatio = 1.12,
+): IchibaItem[] {
+  const comparable = items
+    .filter((item): item is IchibaItem & { unitPrice: number } => item.unitPrice !== undefined)
+    .sort((a, b) => a.unitPrice - b.unitPrice);
+
+  if (comparable.length < 5) return items;
+
+  const cheapest = comparable[0];
+  const medianOf3to5 = comparable[3].unitPrice; // middle of ranks 3,4,5
+
+  // 絶対円ではなく比率で判定する。単価が安い商品ほど「絶対円の差」は
+  // 小さくなるため、固定500円のような閾値では低単価帯で機能しなくなる。
+  // 例: 140円台の商品で20円差(≒15%)は明確な外れ値だが、500円には遠く届かない。
+  if (cheapest.unitPrice > 0 && medianOf3to5 / cheapest.unitPrice >= minRatio) {
+    cheapest.needsShippingRecheck = true;
+  }
+
+  return items;
+}
+
+
 /** Agent workflow appended to Ichiba search/ranking tool descriptions. */
 export const ICHIBA_VALUE_COMPARE_WORKFLOW = bilingual(
-  "For cheapest / per-unit / shipping-inclusive comparisons (送料込み, コスパ, 安い順, 最安): use the compare_ichiba_value PROMPT instead of this tool alone. If you must use this tool directly: (1) pre-sort by unitPrice ascending; (2) shippingVerified=true → estimatedTotalPrice is final; (3) web-search top 3–5 shippingVerified=false items for JPY shipping; (4) re-rank by itemPrice+shipping; never guess shipping.",
-  "送料込み・コスパ・安い順・最安の比較は compare_ichiba_value プロンプトを使うこと(このツール単体は不十分)。直接使う場合: (1) unitPrice昇順 (2) shippingVerified=trueは確定 (3) false上位3〜5件をウェブ検索 (4) 再ソート。送料推測禁止。",
+  "For cheapest / per-unit / shipping-inclusive comparisons (送料込み, コスパ, 安い順, 最安): use the compare_ichiba_value PROMPT instead of this tool alone. If you must use this tool directly: (1) pre-sort by unitPrice ascending; (2) shippingVerified=true AND needsShippingRecheck is not true → estimatedTotalPrice is final; (3) web-search top 3–5 items where shippingVerified=false OR needsShippingRecheck=true for JPY shipping; (4) re-rank by itemPrice+shipping; never guess shipping.",
+  "送料込み・コスパ・安い順・最安の比較は compare_ichiba_value プロンプトを使うこと(このツール単体は不十分)。直接使う場合: (1) unitPrice昇順 (2) shippingVerified=true かつ needsShippingRecheck が立っていなければ確定 (3) shippingVerified=false または needsShippingRecheck=true の上位3〜5件をウェブ検索 (4) 再ソート。送料推測禁止。",
 );
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -285,13 +325,19 @@ export interface IchibaItem {
   quantity?: number;
   /** itemPrice divided by quantity (JPY per unit), when quantity is known. */
   unitPrice?: number;
-  /**
+/**
    * Payable total when shipping is known (equals itemPrice when postageLabel is 送料無料).
    * Undefined when shipping must be confirmed via web search.
    */
   estimatedTotalPrice?: number;
   /** True when estimatedTotalPrice is reliable without a web lookup. */
   shippingVerified: boolean;
+  /**
+   * True when this item's unitPrice is implausibly low compared to peers,
+   * suggesting postageFlag may be mislabeled (e.g. falsely 送料無料).
+   * Agents should treat this the same as shippingVerified=false.
+   */
+  needsShippingRecheck?: boolean;
 }
 
 export interface IchibaItemSearchResult {
@@ -408,9 +454,14 @@ export const ichibaItemSearchTool: ToolDefinition<typeof itemSearchInput> = {
       items: (raw.Items ?? []).map(mapItem),
     };
 
+    detectShippingOutliers(result.items);
+
     return result;
   },
 };
+
+// ──────────────────────────────────────────────────────────────────────────────
+// ichiba_genre_search — Browse Rakuten Ichiba genre tree
 
 // ──────────────────────────────────────────────────────────────────────────────
 // ichiba_genre_search — Browse Rakuten Ichiba genre tree

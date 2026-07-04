@@ -11,7 +11,25 @@ import { loadConfig, parseCliTransport, tryLoadConfig } from "./config.js";
 import { runHttp } from "./transports/http.js";
 import { runStdio } from "./transports/stdio.js";
 
+/** Parse --env KEY=VALUE flags from CLI args. */
+function parseEnvFlags(argv: string[]): void {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === "--env" && i + 1 < argv.length) {
+      const pair = argv[i + 1];
+      const eq = pair.indexOf("=");
+      if (eq > 0) {
+        const key = pair.slice(0, eq);
+        const value = pair.slice(eq + 1);
+        process.env[key] = value;
+        i++; // skip the value arg
+      }
+    }
+  }
+}
+
 async function main(): Promise<void> {
+  // Apply --env KEY=VALUE flags before loading config
+  parseEnvFlags(process.argv.slice(2));
   const cliOverride = parseCliTransport(process.argv.slice(2));
   // Try config but tolerate missing creds — let stdio boot and surface the error
   // through tool calls. Useful for inspectors / `npx rakuten-pantry-mcp --help`.
