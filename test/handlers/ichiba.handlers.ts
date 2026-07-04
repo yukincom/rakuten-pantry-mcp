@@ -205,6 +205,12 @@ export function itemRankingSuccess() {
   });
 }
 
+export function itemRankingWithOutliers() {
+  return http.get(ICHIBA_ITEM_RANKING_URL, () => {
+    return HttpResponse.json(loadFixture("item_ranking_with_outliers.json"));
+  });
+}
+
 export function itemRankingAuthInvalid() {
   return http.get(ICHIBA_ITEM_RANKING_URL, () => {
     return HttpResponse.json(

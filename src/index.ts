@@ -11,8 +11,8 @@ import { loadConfig, parseCliTransport, tryLoadConfig } from "./config.js";
 import { runHttp } from "./transports/http.js";
 import { runStdio } from "./transports/stdio.js";
 
-/** Parse --env KEY=VALUE flags from CLI args. */
-function parseEnvFlags(argv: string[]): void {
+/** Parse --env KEY=VALUE flags from CLI args. (exported for testing) */
+export function parseEnvFlags(argv: string[]): void {
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--env" && i + 1 < argv.length) {
       const pair = argv[i + 1];

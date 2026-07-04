@@ -18,6 +18,7 @@ import {
   RakutenServerError,
 } from "../src/errors.js";
 import {
+  detectShippingOutliers,
   extractQuantityFromItemName,
   ichibaGenreSearchTool,
   ichibaItemRankingTool,
@@ -37,6 +38,7 @@ import {
   itemRankingRateLimitedThenSuccess,
   itemRankingServerError,
   itemRankingSuccess,
+  itemRankingWithOutliers,
   itemSearchAuthInvalid,
   itemSearchEmpty,
   itemSearchRateLimitedThenSuccess,
@@ -107,6 +109,27 @@ describe("extractQuantityFromItemName", () => {
     const itemPrice = 2400;
     expect(quantity).toBe(48);
     expect(Math.round((itemPrice / quantity!) * 10) / 10).toBe(50);
+  });
+});
+
+describe("detectShippingOutliers", () => {
+  it("flags the cheapest item when its unitPrice is significantly lower than peers (minRatio)", () => {
+    const items = [
+      { unitPrice: 100, itemName: "A" },
+      { unitPrice: 120, itemName: "B" },
+      { unitPrice: 121, itemName: "C" },
+      { unitPrice: 122, itemName: "D" },
+      { unitPrice: 123, itemName: "E" },
+    ];
+    const result = detectShippingOutliers(items, 1.12);
+    expect(result[0].needsShippingRecheck).toBe(true);
+    expect(result[1].needsShippingRecheck).toBeUndefined();
+  });
+
+  it("does nothing when fewer than 5 items with unitPrice", () => {
+    const items = [{ unitPrice: 100 }, { unitPrice: 50 }];
+    const result = detectShippingOutliers(items);
+    expect(result[0].needsShippingRecheck).toBeUndefined();
   });
 });
 
@@ -485,6 +508,24 @@ describe("ichibaItemRanking — handler behaviour", () => {
     expect(r.items[1].rank).toBe(2);
     expect(r.items[2].rank).toBe(3);
     expect(r.items[2].itemName).toContain("イヤホン");
+  });
+
+  it("flags needsShippingRecheck on ranking items with implausibly low unitPrice", async () => {
+    server.use(itemRankingWithOutliers());
+
+    const result = await ichibaItemRankingTool.handler(
+      { genre_id: "0", page: 1 },
+      testConfig,
+    );
+    const r = result as {
+      items: Array<{ rank: number; unitPrice?: number; needsShippingRecheck?: boolean }>;
+    };
+
+    expect(r.items).toHaveLength(5);
+    const cheapest = r.items.find((item) => item.rank === 1);
+    expect(cheapest?.unitPrice).toBe(100);
+    expect(cheapest?.needsShippingRecheck).toBe(true);
+    expect(r.items.filter((item) => item.needsShippingRecheck)).toHaveLength(1);
   });
 
   it("throws RakutenBadRequestError on 400", async () => {
