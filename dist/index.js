@@ -314,29 +314,9 @@ var compareIchibaValue = {
     const keyword = args.keyword?.trim() || "(ask the user for a product keyword)";
     const maxPrice = args.max_price?.trim();
     const finalists = args.finalists?.trim() || "5";
-    const priceFilter = maxPrice ? `Max item price: ${maxPrice} JPY (pass as max_price to ichiba_item_search).` : "No max price filter unless the user specified one.";
     const priceFilterJa = maxPrice ? `\u5546\u54C1\u4FA1\u683C\u4E0A\u9650: ${maxPrice}\u5186 (ichiba_item_search \u306E max_price \u306B\u6E21\u3059)\u3002` : "\u30E6\u30FC\u30B6\u30FC\u6307\u5B9A\u304C\u306A\u3051\u308C\u3070\u4FA1\u683C\u4E0A\u9650\u306A\u3057\u3002";
     return {
-      en: `Find the best cost-per-unit deal on Rakuten Ichiba.
-
-Keyword: ${keyword}
-${priceFilter}
-Finalists to web-check for shipping: ${finalists}
-
-Follow this plan exactly:
-
-1. Call ichiba_item_search with the keyword${maxPrice ? ` and max_price=${maxPrice}` : ""} (hits=30 if needed).
-2. Pre-rank candidates by unitPrice ascending (lowest per-unit cost first). Skip items with no unitPrice unless the user cares about total pack price only.
-3. Split results:
-   - shippingVerified=true AND needsShippingRecheck is not true: treat estimatedTotalPrice as confirmed total; shipping = 0.
-   - shippingVerified=false OR needsShippingRecheck=true: needs web verification (the latter means the API's postageFlag looks mislabeled \u2014 this item's unitPrice was implausibly cheaper than peers).
-4. Take the top ${finalists} items that still need shipping verification. For each, web-search using itemUrl first, or query "shopName itemName \u9001\u6599" / "shopName \u9001\u6599". Extract the shipping cost in JPY for a typical mainland-Japan delivery. If ambiguous, note "\u9001\u6599\u8981\u78BA\u8A8D" \u2014 do not invent a number.
-5. Compute totalPrice = itemPrice + confirmedShipping for each finalist. Re-rank all candidates by totalPrice, then by unitPrice as tiebreaker.
-6. Present a ranked table: rank, itemName, shopName, itemPrice, postageLabel, shipping (JPY or \u8981\u78BA\u8A8D), totalPrice, quantity, unitPrice, itemUrl.
-7. Recommend #1 with one honest caveat (e.g. unverified shipping, low review count).
-
-Never guess shipping costs. Only use web-search evidence or postageFlag=1 (\u9001\u6599\u7121\u6599).`,
-      ja: `\u697D\u5929\u5E02\u5834\u3067\u30B3\u30B9\u30D1\uFF08\u5358\u4FA1\uFF09\u6700\u5B89\u306E\u5546\u54C1\u3092\u63A2\u3057\u3066\u304F\u3060\u3055\u3044\u3002
+      text: `\u697D\u5929\u5E02\u5834\u3067\u30B3\u30B9\u30D1\uFF08\u5358\u4FA1\uFF09\u6700\u5B89\u306E\u5546\u54C1\u3092\u63A2\u3057\u3066\u304F\u3060\u3055\u3044\u3002
 
 \u30AD\u30FC\u30EF\u30FC\u30C9: ${keyword}
 ${priceFilterJa}
@@ -443,7 +423,7 @@ async function fetchOnce(url) {
   const resp = await fetch(url, {
     headers: {
       "Accept": "application/json",
-      "User-Agent": "rakuten-pantry-mcp/1.2"
+      "User-Agent": `rakuten-pantry-mcp/${SERVER_VERSION}`
     }
   });
   const retryAfter = resp.headers.get("retry-after");
@@ -824,6 +804,7 @@ var ichibaItemRankingTool = {
       rank: r.Item.rank ?? 0
     }));
     mapped.sort((a, b) => a.rank - b.rank);
+    detectShippingOutliers(mapped);
     const result = {
       title: raw.title ?? "",
       lastBuildDate: raw.lastBuildDate ?? "",
@@ -1075,7 +1056,7 @@ function buildServer() {
           messages: [
             {
               role: "user",
-              content: { type: "text", text: text.en }
+              content: { type: "text", text: text.text }
             }
           ]
         };
@@ -1292,3 +1273,6 @@ main().catch((err) => {
   console.error(`Fatal error: ${message}`);
   process.exit(1);
 });
+export {
+  parseEnvFlags
+};
