@@ -4,8 +4,6 @@
  * Every user-facing string surfaced by the MCP MUST have non-empty `en` and `ja`.
  * Bilingual descriptions are a first-class product decision: Japanese-speaking
  * agents and English-speaking developers both deserve native-language tool docs.
- *
- * CI enforces non-empty values (test/i18n.test.ts).
  */
 
 export interface Bilingual {

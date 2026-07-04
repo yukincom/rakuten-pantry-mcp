@@ -10,20 +10,10 @@
  * across the legacy and new hosts.
  */
 
-import type { Config } from "./config.js";
-
 export interface AuthParams {
   applicationId: string;
   accessKey: string;
   affiliateId?: string;
-}
-
-export function buildAuthParams(config: Config): AuthParams {
-  return {
-    applicationId: config.applicationId,
-    accessKey: config.accessKey,
-    affiliateId: config.affiliateId,
-  };
 }
 
 /**
