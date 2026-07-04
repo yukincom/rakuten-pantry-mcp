@@ -1,6 +1,10 @@
-rakuten-pantry-mcp コードレビュー結果（全体スキャン）
-2026/7/4
-レビュー：Grok Build Grok
+## プロンプト
+rakuten-pantry-mcp  のコードレビュー頼む。コード修正はせず、全体の矛盾、死んでるコードその他変なところをリストアップ。修正案も書いて！
+
+
+## rakuten-pantry-mcp コードレビュー結果（全体スキャン）
+- 2026/7/4
+- レビュー：Grok Build Grok
 
 対象: /Users/yukin_co/AI_assistant/rakuten-pantry-mcp（src + 設定 + テスト + patches + docs を網羅）。
 コード修正は一切行っていません。git の uncommitted 変更（src/index.ts, src/prompts/ichiba.ts, src/tools/ichiba.ts + dist）も含めて全体をレビュー。
