@@ -48,35 +48,12 @@ export const compareIchibaValue: PromptDefinition = {
     const maxPrice = args.max_price?.trim();
     const finalists = args.finalists?.trim() || "5";
 
-    const priceFilter = maxPrice
-      ? `Max item price: ${maxPrice} JPY (pass as max_price to ichiba_item_search).`
-      : "No max price filter unless the user specified one.";
-
     const priceFilterJa = maxPrice
       ? `商品価格上限: ${maxPrice}円 (ichiba_item_search の max_price に渡す)。`
       : "ユーザー指定がなければ価格上限なし。";
 
     return {
-      en: `Find the best cost-per-unit deal on Rakuten Ichiba.
-
-Keyword: ${keyword}
-${priceFilter}
-Finalists to web-check for shipping: ${finalists}
-
-Follow this plan exactly:
-
-1. Call ichiba_item_search with the keyword${maxPrice ? ` and max_price=${maxPrice}` : ""} (hits=30 if needed).
-2. Pre-rank candidates by unitPrice ascending (lowest per-unit cost first). Skip items with no unitPrice unless the user cares about total pack price only.
-3. Split results:
-   - shippingVerified=true AND needsShippingRecheck is not true: treat estimatedTotalPrice as confirmed total; shipping = 0.
-   - shippingVerified=false OR needsShippingRecheck=true: needs web verification (the latter means the API's postageFlag looks mislabeled — this item's unitPrice was implausibly cheaper than peers).
-4. Take the top ${finalists} items that still need shipping verification. For each, web-search using itemUrl first, or query "shopName itemName 送料" / "shopName 送料". Extract the shipping cost in JPY for a typical mainland-Japan delivery. If ambiguous, note "送料要確認" — do not invent a number.
-5. Compute totalPrice = itemPrice + confirmedShipping for each finalist. Re-rank all candidates by totalPrice, then by unitPrice as tiebreaker.
-6. Present a ranked table: rank, itemName, shopName, itemPrice, postageLabel, shipping (JPY or 要確認), totalPrice, quantity, unitPrice, itemUrl.
-7. Recommend #1 with one honest caveat (e.g. unverified shipping, low review count).
-
-Never guess shipping costs. Only use web-search evidence or postageFlag=1 (送料無料).`,
-      ja: `楽天市場でコスパ（単価）最安の商品を探してください。
+      text: `楽天市場でコスパ（単価）最安の商品を探してください。
 
 キーワード: ${keyword}
 ${priceFilterJa}

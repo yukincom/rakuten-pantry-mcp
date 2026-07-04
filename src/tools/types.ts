@@ -34,7 +34,7 @@ export interface PromptDefinition {
     required: boolean;
   }>;
   /** Returns the prompt text for the LLM. */
-  build: (args: Record<string, string | undefined>) => { en: string; ja?: string };
+  build: (args: Record<string, string | undefined>) => { text: string };
 }
 
 export interface ResourceDefinition {

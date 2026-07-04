@@ -128,7 +128,7 @@ export function buildServer(): McpServer {
           messages: [
             {
               role: "user" as const,
-              content: { type: "text" as const, text: text.en },
+              content: { type: "text" as const, text: text.text },
             },
           ],
         };

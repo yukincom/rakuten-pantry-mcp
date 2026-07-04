@@ -33,9 +33,9 @@ describe("compare_ichiba_value prompt", () => {
       max_price: "5000",
     });
 
-    expect(text.en).toContain("モンスターエナジー");
-    expect(text.en).toContain("Finalists to web-check for shipping: 5");
-    expect(text.en).toContain("max_price=5000");
-    expect(text.ja).toContain("送料は推測禁止");
+    expect(text.text).toContain("モンスターエナジー");
+    expect(text.text).toContain("送料ウェブ確認する上位件数: 5");
+    expect(text.text).toContain("max_price=5000");
+    expect(text.text).toContain("送料は推測禁止");
   });
 });

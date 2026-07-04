@@ -46,7 +46,7 @@ rakuten-pantry-mcp/
 └── LICENSE
 ```
 
-Ichiba ツール 5個のみ（Books / Travel / Recipe / Kobo / GORA は含みません）。
+Ichiba ツール 5個のみ（Books / Travel / Recipe / Kobo / GORA は含みません）。`resources/` は現時点では未使用（空のレジストリ）です。
 
 ## セットアップ
 
