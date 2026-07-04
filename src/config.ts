@@ -7,8 +7,7 @@
 import { z } from "zod";
 import { RakutenConfigError } from "./errors.js";
 
-/** Canonical Rakuten API hosts. */
-export const HOST_LEGACY = "https://app.rakuten.co.jp";
+/** Canonical Rakuten API host. */
 export const HOST_OPENAPI = "https://openapi.rakuten.co.jp";
 
 /** Default transport when CLI flag is absent. */

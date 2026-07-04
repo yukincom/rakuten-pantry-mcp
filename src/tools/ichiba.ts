@@ -325,7 +325,7 @@ export interface IchibaItem {
   quantity?: number;
   /** itemPrice divided by quantity (JPY per unit), when quantity is known. */
   unitPrice?: number;
-/**
+  /**
    * Payable total when shipping is known (equals itemPrice when postageLabel is 送料無料).
    * Undefined when shipping must be confirmed via web search.
    */
@@ -459,9 +459,6 @@ export const ichibaItemSearchTool: ToolDefinition<typeof itemSearchInput> = {
     return result;
   },
 };
-
-// ──────────────────────────────────────────────────────────────────────────────
-// ichiba_genre_search — Browse Rakuten Ichiba genre tree
 
 // ──────────────────────────────────────────────────────────────────────────────
 // ichiba_genre_search — Browse Rakuten Ichiba genre tree

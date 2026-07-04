@@ -12,7 +12,6 @@
 
 import { describe, expect, it } from "vitest";
 import type { Config } from "../src/config.js";
-import { HOST_LEGACY } from "../src/config.js";
 import {
   RakutenBadRequestError,
   RakutenServerError,
@@ -157,11 +156,6 @@ describe("ichibaItemSearch — tool definition", () => {
     expect(ichibaItemSearchTool.title.ja).toBeTruthy();
     expect(ichibaItemSearchTool.description.en.length).toBeGreaterThan(20);
     expect(ichibaItemSearchTool.description.ja.length).toBeGreaterThan(10);
-  });
-
-  it("uses the legacy host (Ichiba is not yet migrated)", () => {
-    // Sanity: confirm the constant we import equals what tools target.
-    expect(HOST_LEGACY).toBe("https://app.rakuten.co.jp");
   });
 });
 

@@ -16,9 +16,10 @@
 import { appendAuthParams } from "./auth.js";
 import type { Config } from "./config.js";
 import { parseRakutenError, RakutenMalformedResponseError, RakutenRateLimitError } from "./errors.js";
+import { SERVER_VERSION } from "./server.js";
 
 export interface RakutenRequestOpts {
-  /** Base host, e.g. HOST_LEGACY or HOST_OPENAPI. Use the constant from config.ts. */
+  /** Base host, e.g. HOST_OPENAPI. Use the constant from config.ts. */
   host: string;
   /** Path on the host, e.g. "/services/api/IchibaItem/Search/20220601". */
   path: string;
@@ -97,7 +98,7 @@ async function fetchOnce(url: string): Promise<RawResponse> {
   const resp = await fetch(url, {
     headers: {
       "Accept": "application/json",
-      "User-Agent": "rakuten-pantry-mcp/1.2",
+      "User-Agent": `rakuten-pantry-mcp/${SERVER_VERSION}`,
     },
   });
 
